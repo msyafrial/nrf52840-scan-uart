@@ -1,4 +1,4 @@
-﻿# Dokumentasi Teknis: nRF52840 Real-time High-Density iBeacon Gateway
+# Dokumentasi Teknis: nRF52840 Real-time High-Density iBeacon Gateway
 
 Proyek ini adalah implementasi firmware berkinerja tinggi berbasis **Zephyr RTOS** (nRF Connect SDK) yang berjalan pada **Seeed Studio XIAO BLE / Super52840** dan **Pro Micro nRF52840** (Nordic nRF52840 SoC). Firmware ini bertindak sebagai jembatan cerdas (*gateway*) berlatensi ultra-rendah yang menangkap sinyal ribuan paket beacon per detik, memfilternya, dan mentransmisikannya langsung ke ESP32 melalui kabel serial perangkat keras (UARTE) berkecepatan 1.000.000 bps (1 Mbps).
 
@@ -36,18 +36,18 @@ Proyek ini adalah implementasi firmware berkinerja tinggi berbasis **Zephyr RTOS
 
 ---
 
-## 3. Protokol Biner 25-Byte (Komunikasi ke ESP32)
+## 3. Protokol Frame Biner Mentah 42-Byte (Komunikasi ke ESP32)
 
-Setiap paket beacon yang lolos filter dikemas dalam sebuah struktur biner padat (*packed binary frame*) berukuran tetap **25 byte**.
+Firmware beroperasi dalam mode **Universal Raw Promiscuous Sniffer**. Setiap paket advertising radio yang tertangkap antena langsung dikemas dalam struktur biner padat berukuran tetap **42 byte** dan ditembakkan ke ESP32 tanpa disaring di nRF.
 
-### Diagram Struktur Frame (25 Byte)
+### Diagram Struktur Frame (42 Byte)
 
 ```text
-Byte:   0      1      2..17              18..19   20..21   22     23        24
-     +------+------+-------------------+--------+--------+------+---------+----------+
-     | 0xAA | Code | Proximity UUID    | Major  | Minor  | RSSI | Battery | Checksum |
-     |      |      | (16 Byte)         | (2 B)  | (2 B)  | (1 B)| (1 B)   | (1 B)    |
-     +------+------+-------------------+--------+--------+------+---------+----------+
+Byte:   0      1..6      7          8       9           10..40         41
+     +------+---------+----------+------+------------+---------------+----------+
+     | 0xAA | MAC     | Adv Type | RSSI | PayloadLen | Raw Payload   | Checksum |
+     |      | (6 B)   | (1 B)    | (1 B)| (1 B)      | (31 Byte)     | (1 B)    |
+     +------+---------+----------+------+------------+---------------+----------+
 ```
 
 ### Rincian Field Frame
@@ -55,13 +55,12 @@ Byte:   0      1      2..17              18..19   20..21   22     23        24
 | Byte Offset | Panjang | Nama Field | Tipe Data | Deskripsi |
 | :--- | :--- | :--- | :--- | :--- |
 | **0** | 1 Byte | `header` | `uint8_t` | Karakter sinkronisasi tetap: `0xAA` |
-| **1** | 1 Byte | `code` | `uint8_t` | Tipe beacon: `0x00` (Apple iBeacon) atau `0x01` (Minew Format B) |
-| **2 .. 17** | 16 Byte | `uuid` | `uint8_t[16]` | 128-bit Proximity UUID (Big-Endian raw bytes) |
-| **18 .. 19** | 2 Byte | `major` | `uint16_t` | Nilai Major ID beacon (Format Big-Endian / Network Order) |
-| **20 .. 21** | 2 Byte | `minor` | `uint16_t` | Nilai Minor ID beacon (Format Big-Endian / Network Order) |
-| **22** | 1 Byte | `rssi` | `int8_t` | Kekuatan sinyal diterima dalam satuan dBm (-128 s.d +127) |
-| **23** | 1 Byte | `battery` | `uint8_t` | Persentase baterai 0-100% (bernilai 0 untuk Apple iBeacon) |
-| **24** | 1 Byte | `checksum` | `uint8_t` | XOR dari byte offset 1 sampai dengan byte offset 23 |
+| **1 .. 6** | 6 Byte | `mac` | `uint8_t[6]` | Alamat Bluetooth MAC Address (Big-Endian / MSB ke LSB) |
+| **7** | 1 Byte | `adv_type` | `uint8_t` | Tipe PDU radio (`ADV_IND`, `ADV_NONCONN_IND`, `SCAN_RSP`, dll.) |
+| **8** | 1 Byte | `rssi` | `int8_t` | Kekuatan sinyal diterima dalam satuan dBm (-128 s.d +127) |
+| **9** | 1 Byte | `payload_len` | `uint8_t` | Panjang efektif data advertising yang valid (0 s.d 31 byte) |
+| **10 .. 40**| 31 Byte | `payload` | `uint8_t[31]` | Data mentah AD Structures tanpa diubah (sisa byte di-pad `0x00`) |
+| **41** | 1 Byte | `checksum` | `uint8_t` | XOR dari byte offset 1 sampai dengan byte offset 40 |
 
 ---
 
