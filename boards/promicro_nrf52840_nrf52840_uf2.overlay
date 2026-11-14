@@ -1,4 +1,4 @@
-﻿/* Overlay for Pro Micro nRF52840 (UF2) */
+/* Overlay for Pro Micro nRF52840 (UF2) */
 
 / {
 	aliases {
@@ -9,15 +9,18 @@
 &pinctrl {
 	uart0_default: uart0_default {
 		group1 {
-			psels = <NRF_PSEL(UART_TX, 0, 6)>,
-				<NRF_PSEL(UART_RX, 0, 8)>;
+			psels = <NRF_PSEL(UART_TX, 0, 8)>;
+		};
+		group2 {
+			psels = <NRF_PSEL(UART_RX, 0, 6)>;
+			bias-pull-up;
 		};
 	};
 
 	uart0_sleep: uart0_sleep {
 		group1 {
-			psels = <NRF_PSEL(UART_TX, 0, 6)>,
-				<NRF_PSEL(UART_RX, 0, 8)>;
+			psels = <NRF_PSEL(UART_TX, 0, 8)>,
+				<NRF_PSEL(UART_RX, 0, 6)>;
 			low-power-enable;
 		};
 	};
